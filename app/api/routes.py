@@ -7,7 +7,9 @@ from app.models.schemas import (
     ScrapeRequest, Review, GenerateResponseRequest, 
     GeneratedResponse, ScrapeAndRespondRequest
 )
+
 from functions.functions_trustpilot import extract_review_from_trustpilot
+from functions.functions_google_reviews import extract_google_reviews_full_best_effort  # ← AJOUTE ÇA
 from functions.response_generator import ResponseGenerator
 
 router = APIRouter()
@@ -29,10 +31,21 @@ async def scrape_reviews(request: ScrapeRequest) -> Any:
             }
         
         elif request.platform == "google":
-            raise HTTPException(
-                status_code=status.HTTP_501_NOT_IMPLEMENTED,
-                detail="Google Reviews pas encore implémenté"
+            # ← AJOUTE CE BLOC
+            reviews_raw = extract_google_reviews_full_best_effort(
+                str(request.url), 
+                max_reviews=request.max_reviews,
+                headless=True  # Sans interface graphique
             )
+            
+            # Convertir en format dict
+            reviews = [{"text": r} for r in reviews_raw]
+            
+            return {
+                "success": True,
+                "count": len(reviews),
+                "reviews": reviews
+            }
         
         else:
             raise HTTPException(
@@ -45,7 +58,6 @@ async def scrape_reviews(request: ScrapeRequest) -> Any:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erreur: {str(e)}"
         )
-
 
 @router.get("/", tags=["Root"])
 async def root():
@@ -90,15 +102,27 @@ async def generate_response(request: GenerateResponseRequest):
 async def scrape_and_respond(request: ScrapeAndRespondRequest):
     """Workflow complet: Scrape + génère des réponses"""
     try:
+        # 1. Scraper les avis
         if request.platform == "trustpilot":
             reviews = extract_review_from_trustpilot(str(request.url))
             reviews = reviews[:request.max_reviews]
+        
+        elif request.platform == "google":
+            # ← AJOUTE CE BLOC
+            reviews_raw = extract_google_reviews_full_best_effort(
+                str(request.url), 
+                max_reviews=request.max_reviews,
+                headless=True
+            )
+            reviews = [{"text": r} for r in reviews_raw]
+        
         else:
             raise HTTPException(
                 status_code=status.HTTP_501_NOT_IMPLEMENTED,
                 detail=f"Plateforme {request.platform} pas encore implémentée"
             )
         
+        # 2. Générer des réponses (reste identique)
         generator = ResponseGenerator(use_ai=request.use_ai)
         results = []
         
@@ -133,7 +157,6 @@ async def scrape_and_respond(request: ScrapeAndRespondRequest):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erreur: {str(e)}"
         )
-
 
 @router.get("/health", tags=["Monitoring"])
 async def health_check():
