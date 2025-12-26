@@ -5,7 +5,6 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 import time
-import pandas as pd
 import unicodedata
 
 def enlever_accents(texte):
@@ -82,9 +81,63 @@ def extract_review_from_trustpilot(url):
     while True:
         cards = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div[class='styles_reviewContent__tuXiN']")))
         for card in cards:
+            # Extraire le texte principal de l'avis
+            review_text = None
+            try:
                 ps = card.find_elements(By.TAG_NAME, "p")
-                if ps:  # si la liste n'est pas vide
-                    liste_review.append(ps[0].text.strip())
+                if ps:
+                    review_text = ps[0].text.strip()
+            except Exception:
+                review_text = None
+
+            # Essayer d'extraire la note (ex: "5.0" ou "5 out of 5")
+            rating = None
+            try:
+                # Trustpilot encode souvent la note dans un élément avec aria-label contenant "out of" ou "étoiles"
+                # Cherche les éléments avec aria-label
+                possible = card.find_elements(By.XPATH, ".//*[contains(@aria-label, 'out of')] | .//*[contains(@aria-label, 'étoile')]")
+                if possible:
+                    rating_label = possible[0].get_attribute('aria-label')
+                    # extraire le chiffre au début
+                    import re
+                    m = re.search(r"([0-9]+(?:[\.,][0-9]+)?)", rating_label)
+                    if m:
+                        rating = float(m.group(1).replace(',', '.'))
+                else:
+                    # parfois la note est dans le titre d'une image
+                    imgs = card.find_elements(By.TAG_NAME, 'img')
+                    for im in imgs:
+                        title = im.get_attribute('title') or ''
+                        if title:
+                            m = __import__('re').search(r"([0-9]+(?:[\.,][0-9]+)?)", title)
+                            if m:
+                                rating = float(m.group(1).replace(',', '.'))
+                                break
+            except Exception:
+                rating = None
+
+            # Essayer d'extraire le titre de l'avis (h2) qui indique le ressenti principal
+            sentiment_label = None
+            try:
+                # Chercher le h2 avec l'attribut data-service-review-title-typography
+                h2_elems = card.find_elements(By.CSS_SELECTOR, 'h2[data-service-review-title-typography="true"]')
+                if h2_elems and len(h2_elems) > 0:
+                    sentiment_label = h2_elems[0].text.strip()
+                else:
+                    # Fallback: chercher simplement le premier h2
+                    h2_elems = card.find_elements(By.TAG_NAME, 'h2')
+                    if h2_elems and len(h2_elems) > 0:
+                        sentiment_label = h2_elems[0].text.strip()
+            except Exception:
+                sentiment_label = None
+
+            # Construire l'objet review
+            item = {
+                'text': review_text if review_text else '',
+                'rating': rating,
+                'sentiment_label': sentiment_label
+            }
+            liste_review.append(item)
 
         # ---- Page suivante ----
         try:
