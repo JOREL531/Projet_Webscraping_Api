@@ -75,18 +75,21 @@ async def root():
 
 @router.post("/generate-response", tags=["Génération"])
 async def generate_response(request: GenerateResponseRequest):
-    """Génère une réponse personnalisée pour un avis"""
+    """Génère une réponse personnalisée (ton automatique)"""
     try:
         generator = ResponseGenerator(use_ai=request.use_ai)
+        
+        # Ton automatique
         response_text = generator.generate_response(
-            review_text=request.review_text,
-            tone=request.tone
+            review_text=request.review_text
         )
+        
+        tone_used = generator.auto_detect_tone(request.review_text)
         sentiment = generator.detect_sentiment(request.review_text)
         
         return {
             "response": response_text,
-            "tone": request.tone,
+            "tone": tone_used,  # Ton détecté automatiquement
             "sentiment": sentiment,
             "used_ai": request.use_ai
         }
@@ -100,7 +103,7 @@ async def generate_response(request: GenerateResponseRequest):
 
 @router.post("/scrape-and-respond", tags=["Workflow Complet"])
 async def scrape_and_respond(request: ScrapeAndRespondRequest):
-    """Workflow complet: Scrape + génère des réponses"""
+    """Workflow complet: Scrape + génère des réponses (ton automatique)"""
     try:
         # 1. Scraper les avis
         if request.platform == "trustpilot":
@@ -108,7 +111,6 @@ async def scrape_and_respond(request: ScrapeAndRespondRequest):
             reviews = reviews[:request.max_reviews]
         
         elif request.platform == "google":
-            # ← AJOUTE CE BLOC
             reviews_raw = extract_google_reviews_full_best_effort(
                 str(request.url), 
                 max_reviews=request.max_reviews,
@@ -122,7 +124,7 @@ async def scrape_and_respond(request: ScrapeAndRespondRequest):
                 detail=f"Plateforme {request.platform} pas encore implémentée"
             )
         
-        # 2. Générer des réponses (reste identique)
+        # 2. Générer des réponses avec TON AUTOMATIQUE
         generator = ResponseGenerator(use_ai=request.use_ai)
         results = []
         
@@ -130,23 +132,17 @@ async def scrape_and_respond(request: ScrapeAndRespondRequest):
             text = review.get('text', '') if isinstance(review, dict) else review
             rating = review.get('rating', None) if isinstance(review, dict) else None
             
-            if rating:
-                if rating >= 4:
-                    tone_auto = "amical"
-                elif rating <= 2:
-                    tone_auto = "empathique"
-                else:
-                    tone_auto = request.tone
-            else:
-                tone_auto = request.tone
+            # Génération avec détection automatique du ton
+            response_text = generator.generate_response(text, rating=rating)
             
-            response_text = generator.generate_response(text, tone=tone_auto)
+            # Récupérer le ton utilisé et le sentiment
+            tone_used = generator.auto_detect_tone(text, rating)
             sentiment = generator.detect_sentiment(text)
             
             results.append({
                 "review": review,
                 "generated_response": response_text,
-                "tone": tone_auto,
+                "tone": tone_used,
                 "sentiment": sentiment
             })
         
@@ -157,7 +153,8 @@ async def scrape_and_respond(request: ScrapeAndRespondRequest):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erreur: {str(e)}"
         )
-
+    
+    
 @router.get("/health", tags=["Monitoring"])
 async def health_check():
     """Vérifier l'état de l'API"""

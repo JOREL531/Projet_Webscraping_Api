@@ -2,12 +2,11 @@ from pydantic import BaseModel, HttpUrl
 from typing import Optional, List
 from enum import Enum
 
-
 class Platform(str, Enum):
-    """Plateformes supportées"""
     trustpilot = "trustpilot"
     google = "google"
     tripadvisor = "tripadvisor"
+    yelp = "yelp"
 
 
 class Tone(str, Enum):
@@ -48,14 +47,12 @@ class Review(BaseModel):
 class GenerateResponseRequest(BaseModel):
     """Requête pour générer une réponse"""
     review_text: str
-    tone: Optional[Tone] = Tone.formel
-    use_ai: Optional[bool] = False
+    use_ai: Optional[bool] = True  # ← True par défaut
     
     class Config:
         json_schema_extra = {
             "example": {
                 "review_text": "Excellent service, très satisfait!",
-                "tone": "amical",
                 "use_ai": True
             }
         }
@@ -72,7 +69,6 @@ class GeneratedResponse(BaseModel):
 class ScrapeAndRespondRequest(BaseModel):
     """Requête pour scraper ET générer des réponses"""
     url: HttpUrl
-    platform: Platform
+    platform: Optional[Platform] = None  # ← Rendre optionnel
     max_reviews: Optional[int] = 10
-    tone: Optional[Tone] = Tone.formel
-    use_ai: Optional[bool] = False
+    use_ai: Optional[bool] = True

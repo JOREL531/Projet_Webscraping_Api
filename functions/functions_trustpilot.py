@@ -60,7 +60,7 @@ def search_company_from_trustpilot(company):
             page += 1
 
         except TimeoutException:
-            # print("\nPlus de page suivante 👍")
+            # print("\nPlus de page suivante")
             break
 
     driver.quit()
@@ -151,7 +151,7 @@ def extract_review_from_trustpilot(url):
             page += 1
 
         except TimeoutException:
-            # print("\nPlus de page suivante 👍")
+            # print("\nPlus de page suivante")
             break
 
     driver.quit()
