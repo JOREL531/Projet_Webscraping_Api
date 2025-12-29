@@ -71,7 +71,7 @@ def search_company_from_trustpilot(company):
     return result
 
 
-def extract_review_from_trustpilot(url):
+def extract_review_from_trustpilot(url, max_reviews=20):
     driver = webdriver.Chrome()
     driver.get(url)
 
@@ -85,6 +85,11 @@ def extract_review_from_trustpilot(url):
                 ps = card.find_elements(By.TAG_NAME, "p")
                 if ps:  # si la liste n'est pas vide
                     liste_review.append(ps[0].text.strip())
+
+                # --- Stop ici si on a atteint le max ---
+                if len(liste_review) >= max_reviews:
+                    driver.quit()
+                    return liste_review
 
         # ---- Page suivante ----
         try:

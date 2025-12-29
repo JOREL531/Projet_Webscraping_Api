@@ -57,7 +57,7 @@ import requests
 #     driver.quit()
 #     return liste_review
 
-def extract_review_from_yelp(url):
+def extract_review_from_yelp(url, max_reviews=20):
     driver = webdriver.Chrome()
     driver.get(url)
 
@@ -69,6 +69,11 @@ def extract_review_from_yelp(url):
         cards = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, "#reviews span.raw__09f24__T4Ezm")))
         for card in cards:
                 liste_review.append(card.text.strip())
+
+                # ---- arrêt si limite atteinte ----
+                if len(liste_review) >= max_reviews:
+                    driver.quit()
+                    return liste_review
 
         # on garde le texte du 1er avis pour détecter changement
         #first_text = cards[0].text       
