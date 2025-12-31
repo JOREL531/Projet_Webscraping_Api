@@ -57,39 +57,33 @@ import requests
 #     driver.quit()
 #     return liste_review
 
-def extract_review_from_yelp(url, max_reviews=20):
+def extract_review_from_yelp(url, max_reviews):
     driver = webdriver.Chrome()
     driver.get(url)
 
     wait = WebDriverWait(driver, 10)
     
     liste_review = []
-    page = 0
-    while True:
-        cards = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, "#reviews span.raw__09f24__T4Ezm")))
-        for card in cards:
-                liste_review.append(card.text.strip())
-
-                # ---- arrêt si limite atteinte ----
-                if len(liste_review) >= max_reviews:
-                    driver.quit()
-                    return liste_review
-
-        # on garde le texte du 1er avis pour détecter changement
-        #first_text = cards[0].text       
-
-        # ---- Page suivante ----
-        page += 1
-        next_url = url + f"&start={page*10}"
-        driver.get(next_url)
-
+    page = 1
+    while len(liste_review) < max_reviews:
         try:
-            wait.until(EC.presence_of_element_located(
-                (By.CSS_SELECTOR, "#reviews span.raw__09f24__T4Ezm")
-            ))
-        except TimeoutException:
-            #print("Plus de page suivante")
-            break
 
+                cards = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, "#reviews span.raw__09f24__T4Ezm")))
+                for card in cards:
+                        liste_review.append(card.text.strip())
+
+                        # ---- arrêt si limite atteinte ----
+                        if len(liste_review) >= max_reviews:
+                            break
+
+                next_btn = wait.until(EC.element_to_be_clickable((By.XPATH, "//a[contains(@class,'navigation-button') and contains(@class,'next-link')]")))
+                driver.execute_script("arguments[0].click();", next_btn)
+                # maintenant on attend que l’ancienne page disparaisse
+                wait.until(EC.staleness_of(cards[0]))
+                page += 1
+
+        except TimeoutException:
+            # print("\nPlus de page suivante")
+            break
     driver.quit()
     return liste_review
