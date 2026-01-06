@@ -1,0 +1,71 @@
+from fastapi import FastAPI
+from functions.scrapping.functions_trustpilot import extract_review_from_trustpilot
+from functions.scrapping.functions_yelp import extract_review_from_yelp
+from functions.scrapping.functions_app_store import extract_review_from_app_store
+from functions.scrapping.functions_amazon import save_cookies, extract_review_from_amazon
+from functions.scrapping.functions_google_reviews import extract_google_reviews_full_best_effort
+
+app = FastAPI(title="Reviews Scraper API")
+
+# @app.get("/reviews/trustpilot")
+# def get_reviews(
+#     url: str,
+#     max_reviews:int
+# ):
+#     """
+#     Récupère les avis Trustpilot depuis une URL donnée
+#     """
+#     reviews = extract_review_from_trustpilot(url, max_reviews)
+
+#     return {
+#         "url": url,
+#         "requested_reviews": max_reviews,
+#         # "returned_reviews": len(reviews),
+#         "data": reviews
+#     }
+
+# @app.get("/reviews/yelp")
+# def get_yelp_reviews(
+#     url: str,
+#     max_reviews: int
+# ):
+#     """
+#     Récupère les avis Yelp depuis une URL donnée
+#     """
+#     reviews = extract_review_from_yelp(url, max_reviews)
+
+#     return {
+#         "url": url,
+#         "requested_reviews": max_reviews,
+#         # "returned_reviews": len(reviews),
+#         "data": reviews
+#     }
+
+@app.get("/reviews")
+def get_reviews(
+    source: str,  # trustpilot, yelp, google, appstore, amazon
+    url: str | None = None,
+    max_reviews: int = 50
+):
+    if source == "trustpilot":
+        reviews = extract_review_from_trustpilot(url, max_reviews)
+
+    if source == "yelp":
+        reviews = extract_review_from_yelp(url, max_reviews)
+
+    if source == "google":
+        reviews = extract_google_reviews_full_best_effort(url, max_reviews)
+
+    if source == "appstore":
+        reviews = extract_review_from_app_store(url, max_reviews)
+    
+    if source == "amazon":
+        reviews = extract_review_from_amazon(url, max_reviews)
+
+    return {
+        "url": url,
+        "requested_reviews": max_reviews,
+        # "returned_reviews": len(reviews),
+        "data": reviews
+    }
+
