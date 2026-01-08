@@ -71,10 +71,12 @@ def extract_review_from_amazon(url, max_reviews):
                 
                 for review in reviews:
                     text = review.text.strip()
-                    reviews_text.append(text)
+                    if text != '':
+                        reviews_text.append(text)
                     if len(reviews_text) >= max_reviews:
-                        # return liste_review
-                        break
+                            # return liste_review
+                            break
+
 
                 next_btn = wait.until(EC.element_to_be_clickable((By.XPATH, "//a[contains(text(), 'Suivant')]")))
                 driver.execute_script("arguments[0].click();", next_btn)
@@ -87,3 +89,111 @@ def extract_review_from_amazon(url, max_reviews):
             break
     driver.quit()
     return reviews_text
+
+
+def extract_reviews_and_ratings_from_amazon(url, max_reviews):
+    driver = load_cookies(url)
+    wait = WebDriverWait(driver, 5)
+
+    # Ouvrir la page des avis
+    bouton = wait.until(
+        EC.element_to_be_clickable((By.XPATH, "//a[contains(., 'Voir plus de commentaires')]"))
+    )
+    bouton.click()
+
+    results = []
+    page = 1
+
+    while len(results) < max_reviews:
+        try:
+            # Attendre les blocs d'avis
+            wait.until(
+                EC.presence_of_all_elements_located(
+                    (By.XPATH, '//li[@data-hook="review"]')
+                )
+            )
+
+            reviews = driver.find_elements(By.XPATH, '//li[@data-hook="review"]')
+
+            for review in reviews:
+                try:
+                    # Texte de l'avis
+                    text = review.find_element(
+                        By.XPATH, './/span[@data-hook="review-body"]//span'
+                    ).text.strip()
+
+                    # Rating
+                    rating_text = review.find_element(
+                        By.XPATH, './/i[@data-hook="review-star-rating"]//span[@class="a-icon-alt"]'
+                    ).get_attribute("innerHTML")
+
+                    rating = float(rating_text.split()[0].replace(',', '.'))
+
+                    if text:
+                        results.append({
+                            "rating": rating,
+                            "review": text
+                        })
+
+                    if len(results) >= max_reviews:
+                        break
+
+                except Exception:
+                    # Avis incomplet → on ignore
+                    continue
+
+            # Bouton suivant
+            next_btn = wait.until(
+                EC.element_to_be_clickable((By.XPATH, "//a[contains(text(), 'Suivant')]"))
+            )
+            driver.execute_script("arguments[0].click();", next_btn)
+
+            # Attendre que la page change
+            wait.until(EC.staleness_of(reviews[0]))
+            page += 1
+
+        except TimeoutException:
+            break
+
+    driver.quit()
+    return results
+
+
+# driver = load_cookies(url)
+# wait = WebDriverWait(driver, 5)
+# bouton = wait.until(EC.element_to_be_clickable((By.XPATH,  "//a[contains(., 'Voir plus de commentaires')]")))
+# bouton.click()
+
+# rating_text = []
+# page = 1
+# while len(rating_text) < 30:
+#         try:
+#                 wait.until(
+#                     EC.presence_of_all_elements_located(
+#                         (By.XPATH, '//i[@data-hook="review-star-rating"]')
+#                     )
+#                 )
+
+#                 ratings = driver.find_elements(
+#                         By.XPATH, 
+#                         '//i[@data-hook="review-star-rating"]//span[@class="a-icon-alt"]'
+#                     )
+                
+#                 for rating in ratings:
+#                     text = rating.get_attribute('innerHTML')
+#                     rating_text.append(float(text.split()[0].replace(',','.')))
+#                     if len(rating_text) >= 30:
+#                         # return liste_review
+#                         break
+
+
+#                 next_btn = wait.until(EC.element_to_be_clickable((By.XPATH, "//a[contains(text(), 'Suivant')]")))
+#                 driver.execute_script("arguments[0].click();", next_btn)
+#                 # maintenant on attend que l’ancienne page disparaisse
+#                 wait.until(EC.staleness_of(ratings[0]))
+#                 page += 1
+
+#         except TimeoutException:
+#             # print("\nPlus de page suivante")
+#             break
+# driver.quit()

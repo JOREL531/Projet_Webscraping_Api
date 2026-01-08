@@ -13,7 +13,7 @@ def extract_google_reviews_full_best_effort(url: str, max_reviews: int = 50, hea
     options.add_argument("--window-size=1400,900")
 
     driver = webdriver.Chrome(options=options)
-    wait = WebDriverWait(driver, 20)
+    wait = WebDriverWait(driver, 10)
 
     def get_full_text_from_el(el):
        

@@ -1,8 +1,8 @@
 from fastapi import FastAPI
-from functions.scrapping.functions_trustpilot import extract_review_from_trustpilot
-from functions.scrapping.functions_yelp import extract_review_from_yelp
-from functions.scrapping.functions_app_store import extract_review_from_app_store
-from functions.scrapping.functions_amazon import save_cookies, extract_review_from_amazon
+from functions.scrapping.functions_trustpilot import extract_review_from_trustpilot, extract_reviews_and_ratings_from_trustpilot
+from functions.scrapping.functions_yelp import extract_review_from_yelp, extract_reviews_and_ratings_from_yelp
+from functions.scrapping.functions_play_store import extract_review_from_gloogle_play_store, extract_reviews_and_ratings_from_google_play_store
+from functions.scrapping.functions_amazon import save_cookies, extract_review_from_amazon, extract_reviews_and_ratings_from_amazon
 from functions.scrapping.functions_google_reviews import extract_google_reviews_full_best_effort
 
 app = FastAPI(title="Reviews Scraper API")
@@ -41,6 +41,36 @@ app = FastAPI(title="Reviews Scraper API")
 #         "data": reviews
 #     }
 
+# @app.get("/reviews")
+# def get_reviews(
+#     source: str,  # trustpilot, yelp, google, appstore, amazon
+#     url: str | None = None,
+#     max_reviews: int = 50
+# ):
+#     if source == "trustpilot":
+#         reviews = extract_review_from_trustpilot(url, max_reviews)
+
+#     if source == "yelp":
+#         reviews = extract_review_from_yelp(url, max_reviews)
+
+#     if source == "google":
+#         reviews = extract_google_reviews_full_best_effort(url, max_reviews)
+
+#     if source == "playstore":
+#         reviews = extract_review_from_gloogle_play_store(url, max_reviews)
+    
+#     if source == "amazon":
+#         reviews = extract_review_from_amazon(url, max_reviews)
+
+#     return {
+#         "url": url,
+#         "requested_reviews": max_reviews,
+#         # "returned_reviews": len(reviews),
+#         "data": reviews
+#     }
+
+# uvicorn functions.API.main:app
+
 @app.get("/reviews")
 def get_reviews(
     source: str,  # trustpilot, yelp, google, appstore, amazon
@@ -48,19 +78,19 @@ def get_reviews(
     max_reviews: int = 50
 ):
     if source == "trustpilot":
-        reviews = extract_review_from_trustpilot(url, max_reviews)
+        reviews = extract_reviews_and_ratings_from_trustpilot(url, max_reviews)
 
     if source == "yelp":
-        reviews = extract_review_from_yelp(url, max_reviews)
+        reviews = extract_reviews_and_ratings_from_yelp(url, max_reviews)
 
     if source == "google":
         reviews = extract_google_reviews_full_best_effort(url, max_reviews)
 
-    if source == "appstore":
-        reviews = extract_review_from_app_store(url, max_reviews)
+    if source == "playstore":
+        reviews = extract_reviews_and_ratings_from_google_play_store(url, max_reviews)
     
     if source == "amazon":
-        reviews = extract_review_from_amazon(url, max_reviews)
+        reviews = extract_reviews_and_ratings_from_amazon(url, max_reviews)
 
     return {
         "url": url,
