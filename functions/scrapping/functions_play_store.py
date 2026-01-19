@@ -61,9 +61,91 @@ def extract_review_from_gloogle_play_store(url, max):
     return avis_text_list
 
 
-def extract_reviews_and_ratings_from_google_play_store(url, max_avis=30):
+def search_company_from_google_play_store(company):
     driver = webdriver.Chrome()
-    driver.get(url)
+    wait = WebDriverWait(driver, 10)
+
+    driver.get("https://play.google.com/")
+
+    # ---- Recherche ----
+
+    first_card = wait.until(
+        EC.element_to_be_clickable((By.CSS_SELECTOR, "button[class='VfPpkd-Bz112c-LgbsSe yHy1rc eT1oJ mN1ivc']"))
+    )
+    driver.execute_script("arguments[0].click();", first_card)
+
+    search = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[placeholder='Rechercher des applis et jeux']")))
+    search.send_keys(company)
+    search.send_keys(Keys.RETURN)
+
+    time.sleep(5)
+    #---- Premier résultat ----
+    first_card = wait.until(
+        EC.element_to_be_clickable((By.XPATH, "//a[contains(@class,'Si6A0c Gy4nib') or contains(@class,'Qfxief')]"))
+    )
+
+    # # Option 1 : cliquer directement
+    driver.execute_script("arguments[0].click();", first_card)
+
+    # Option 2 : récupérer l'URL
+    # url = first_card.get_attribute("href")
+    # driver.get(url)
+
+    return driver
+
+
+def search_company_from_google_play_store_2(company):
+    driver = webdriver.Chrome()
+    wait = WebDriverWait(driver, 10)
+
+    driver.get("https://play.google.com/")
+
+    # Ouvrir la recherche
+    search_btn = wait.until(
+        EC.element_to_be_clickable((By.CSS_SELECTOR, "button.VfPpkd-Bz112c-LgbsSe"))
+    )
+    driver.execute_script("arguments[0].click();", search_btn)
+
+    # Saisir la recherche
+    search = wait.until(
+        EC.presence_of_element_located((By.CSS_SELECTOR, "input[placeholder='Rechercher des applis et jeux']"))
+    )
+    search.send_keys(company)
+    search.send_keys(Keys.RETURN)
+
+    # Attendre que les résultats apparaissent
+    time.sleep(3)
+
+    # Récupérer tous les liens apps
+    cards = driver.find_elements(
+        By.XPATH, "//a[contains(@href,'/store/apps/details?id=')]"
+    )
+
+    # Chercher le lien qui correspond le mieux à la recherche
+    target_card = None
+    company_lower = company.lower().replace(" ", "")
+    for card in cards:
+        href = card.get_attribute("href").lower().replace(" ", "")
+        if company_lower in href:
+            target_card = card
+            break
+
+    if not target_card:
+        driver.quit()
+        return print(f"Aucun résultat correspondant à '{company}' trouvé sur Google Play Store.")
+
+    # Cliquer dessus
+    driver.execute_script("arguments[0].click();", target_card)
+
+    # Attendre que la page app soit chargée
+    wait.until(EC.url_contains("/store/apps/details?id="))
+
+    return driver
+
+
+def extract_reviews_and_ratings_from_google_play_store(company, max_avis=30):
+    driver = search_company_from_google_play_store_2(company)
+    # driver.get(url)
     wait = WebDriverWait(driver, 10)
 
     # Bouton "Afficher tous les avis"

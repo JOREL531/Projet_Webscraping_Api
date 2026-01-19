@@ -9,53 +9,33 @@ import pandas as pd
 import unicodedata
 import requests
 
-# def extract_review_from_yelp(url):
-#     driver = webdriver.Chrome()
-#     driver.get(url)
+def search_company_from_yelp(company):
+    driver = webdriver.Chrome()
+    wait = WebDriverWait(driver, 10)
 
-#     wait = WebDriverWait(driver, 10)
-    
-#     liste_review = []
-#     while True:
-#         cards = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, "#reviews span.raw__09f24__T4Ezm")))
-#         for card in cards:
-#                 liste_review.append(card.text.strip())
+    driver.get("https://www.yelp.fr/")
 
-#         # on garde le texte du 1er avis pour détecter changement
-#         first_text = cards[0].text       
+    # ---- Recherche ----
+    search = wait.until(EC.presence_of_element_located((By.ID, "search_description")))
+    search.send_keys(company)
+    search.send_keys(Keys.RETURN)
 
-#         # ---- Page suivante ----
-#         try:
-#              # bouton "page suivante"
-#             next_btn = wait.until(EC.element_to_be_clickable(
-#                 (By.CSS_SELECTOR,
-#                  "button[aria-label*='Next'], "
-#                  "button[aria-label*='Suiv'], "
-#                  "a[aria-label*='Next'], "
-#                  "a[aria-label*='Suiv']")
-#             ))
+    # ---- Premier résultat ----
+    first_card = wait.until(
+        EC.element_to_be_clickable((By.CSS_SELECTOR, "a[class='y-css-1887ssu']"))
+    )
 
-#             driver.execute_script("arguments[0].scrollIntoView();", next_btn)
-#             driver.execute_script("arguments[0].click();", next_btn)
+    # Option 1 : cliquer directement
+    driver.execute_script("arguments[0].click();", first_card)
 
-#             # ---- attendre nouvelle page ----
-#             wait.until(lambda d: (
-#                 len(d.find_elements(
-#                     By.CSS_SELECTOR,
-#                     "#reviews span.raw__09f24__T4Ezm"
-#                 )) > 0
-#                 and d.find_elements(
-#                     By.CSS_SELECTOR,
-#                     "#reviews span.raw__09f24__T4Ezm"
-#                 )[0].text.strip() != first_text
-#             ))
+    wait.until(lambda d: len(d.window_handles) > 1)
+    driver.switch_to.window(driver.window_handles[-1])
 
-#         except TimeoutException:
-#             #print("\nPlus de page suivante")
-#             break
+    # Option 2 : récupérer l'URL 
+    # url = first_card.get_attribute("href")
+    # driver.get(url)
 
-#     driver.quit()
-#     return liste_review
+    return driver
 
 def extract_review_from_yelp(url, max_reviews):
     driver = webdriver.Chrome()
@@ -90,9 +70,9 @@ def extract_review_from_yelp(url, max_reviews):
 
 
 
-def extract_reviews_and_ratings_from_yelp(url, max_reviews):
-    driver = webdriver.Chrome()
-    driver.get(url)
+def extract_reviews_and_ratings_from_yelp(company, max_reviews):
+    driver = search_company_from_yelp(company)
+    # driver.get(url)
 
     wait = WebDriverWait(driver, 10)
 

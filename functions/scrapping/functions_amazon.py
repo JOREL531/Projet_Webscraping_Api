@@ -91,8 +91,37 @@ def extract_review_from_amazon(url, max_reviews):
     return reviews_text
 
 
-def extract_reviews_and_ratings_from_amazon(url, max_reviews):
-    driver = load_cookies(url)
+def search_company_from_amazon(company):
+    driver = webdriver.Chrome()
+
+    #driver.get("https://www.trustpilot.com/")
+    driver = load_cookies("https://www.amazon.fr/")
+    wait = WebDriverWait(driver, 10)
+
+    # ---- Recherche ----
+    search = wait.until(EC.presence_of_element_located((By.ID, "twotabsearchtextbox")))
+    search.send_keys(company)
+    search.send_keys(Keys.RETURN)
+
+    # ---- Premier résultat ----
+    first_card = wait.until(
+        EC.element_to_be_clickable((By.CSS_SELECTOR, "a[class='a-link-normal s-no-outline']"))
+    )
+
+    # Option 1 : cliquer directement
+    driver.execute_script("arguments[0].click();", first_card)
+
+    # Option 2 : récupérer l'URL 
+    # url = first_card.get_attribute("href")
+    # driver.get(url)
+
+    return driver
+
+
+
+def extract_reviews_and_ratings_from_amazon(company, max_reviews):
+    
+    driver = search_company_from_amazon(company)
     wait = WebDriverWait(driver, 5)
 
     # Ouvrir la page des avis

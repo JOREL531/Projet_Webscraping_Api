@@ -70,51 +70,35 @@ def rechercher_elements(liste, recherche):
 #     result
 #     return result
 
-
-def extract_review_from_trustpilot(url, max_reviews=20):
+def search_company_from_trustpilot(company):
     driver = webdriver.Chrome()
-    driver.get(url)
+    wait = WebDriverWait(driver, 10)
 
-    wait = WebDriverWait(driver, 6)
+    driver.get("https://www.trustpilot.com/")
 
-    page = 1
-    liste_review = []
-    while True:
-        cards = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div[class='styles_reviewContent__tuXiN']")))
-        for card in cards:
-                ps = card.find_elements(By.TAG_NAME, "p")
-                if ps:  # si la liste n'est pas vide
-                    liste_review.append(ps[0].text.strip())
+    # ---- Recherche ----
+    search = wait.until(EC.presence_of_element_located((By.NAME, "query")))
+    search.send_keys(company)
+    search.send_keys(Keys.RETURN)
 
-                # --- Stop ici si on a atteint le max ---
-                if len(liste_review) >= max_reviews:
-                    driver.quit()
-                    return liste_review
+    # ---- Premier résultat ----
+    first_card = wait.until(
+        EC.element_to_be_clickable((By.CSS_SELECTOR, "a[name='business-unit-card']"))
+    )
 
-        # ---- Page suivante ----
-        try:
-            next_btn = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "a[name='pagination-button-next']")))
-            # on garde une référence à un élément de l’ancienne page
-            old_first_card = cards[0]
-            # clic (JS car Trustpilot bloque parfois les clics standards)
-            driver.execute_script("arguments[0].click();", next_btn)
-            # maintenant on attend que l’ancienne page disparaisse
-            wait.until(EC.staleness_of(old_first_card))
-            page += 1
+    # Option 1 : cliquer directement
+    driver.execute_script("arguments[0].click();", first_card)
 
-        except TimeoutException:
-            # print("\nPlus de page suivante")
-            break
+    # Option 2 : récupérer l'URL 
+    # url = first_card.get_attribute("href")
+    # driver.get(url)
 
-    driver.quit()
-    return liste_review
+    return driver
 
 
 
-
-def extract_reviews_and_ratings_from_trustpilot(url, max_reviews):
-    driver = webdriver.Chrome()
-    driver.get(url)
+def extract_reviews_and_ratings_from_trustpilot(company, max_reviews):
+    driver = search_company_from_trustpilot(company)
 
     wait = WebDriverWait(driver, 6)
 
@@ -168,3 +152,42 @@ def extract_reviews_and_ratings_from_trustpilot(url, max_reviews):
 
     driver.quit()
     return results
+
+
+# def extract_review_from_trustpilot(url, max_reviews=20):
+#     driver = webdriver.Chrome()
+#     driver.get(url)
+
+#     wait = WebDriverWait(driver, 6)
+
+#     page = 1
+#     liste_review = []
+#     while True:
+#         cards = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div[class='styles_reviewContent__tuXiN']")))
+#         for card in cards:
+#                 ps = card.find_elements(By.TAG_NAME, "p")
+#                 if ps:  # si la liste n'est pas vide
+#                     liste_review.append(ps[0].text.strip())
+
+#                 # --- Stop ici si on a atteint le max ---
+#                 if len(liste_review) >= max_reviews:
+#                     driver.quit()
+#                     return liste_review
+
+#         # ---- Page suivante ----
+#         try:
+#             next_btn = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "a[name='pagination-button-next']")))
+#             # on garde une référence à un élément de l’ancienne page
+#             old_first_card = cards[0]
+#             # clic (JS car Trustpilot bloque parfois les clics standards)
+#             driver.execute_script("arguments[0].click();", next_btn)
+#             # maintenant on attend que l’ancienne page disparaisse
+#             wait.until(EC.staleness_of(old_first_card))
+#             page += 1
+
+#         except TimeoutException:
+#             # print("\nPlus de page suivante")
+#             break
+
+#     driver.quit()
+#     return liste_review
