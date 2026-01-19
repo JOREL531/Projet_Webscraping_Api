@@ -33,7 +33,8 @@ class ResponseGenerator:
             print("Chargement du modèle GPT4All (première fois: téléchargement ~2GB)...")
             try:
                 # Modèle léger et rapide
-                self.model = GPT4All("orca-mini-3b-gguf2-q4_0.gguf")
+                #self.model = GPT4All("orca-mini-3b-gguf2-q4_0.gguf")
+                self.model = GPT4All("mistral-7b-instruct-v0.1.Q4_0.gguf")
                 print("Modèle GPT4All chargé avec succès")
             except Exception as e:
                 print(f"Erreur chargement GPT4All: {e}")
@@ -55,33 +56,6 @@ class ResponseGenerator:
             return lang
         except Exception:
             return 'fr'
-    
-    # def detect_sentiment(self, text: str) -> str:
-    #     """Détecte le sentiment du texte"""
-    #     positive_words = [
-    #         'excellent', 'super', 'fantastique', 'merveilleux', 'génial',
-    #         'adoré', 'parfait', 'bravo', 'très bon', 'satisfait', 'content',
-    #         'wonderful', 'amazing', 'great', 'perfect', 'love', 'formidable',
-    #         'top', 'recommande', 'qualité', 'professionnel', 'rapide', 'efficace'
-    #     ]
-    #     negative_words = [
-    #         'mauvais', 'horrible', 'décevant', 'nul', 'catastrophe', 'problème',
-    #         'plainte', 'déçu', 'très mauvais', 'pire', 'refus', 'discrimination',
-    #         'terrible', 'awful', 'bad', 'worst', 'disappointed', 'lent', 'incompétent',
-    #         'arnaque', 'scandale', 'inadmissible', 'honte', 'frustré', 'horrific'
-    #     ]
-        
-    #     text_lower = text.lower()
-        
-    #     positive_count = sum(1 for word in positive_words if word in text_lower)
-    #     negative_count = sum(1 for word in negative_words if word in text_lower)
-        
-    #     if positive_count > negative_count:
-    #         return 'positive'
-    #     elif negative_count > positive_count:
-    #         return 'negative'
-    #     else:
-    #         return 'neutral'
 
     def detect_sentiment(self,text: str) -> str:
         result = self.sentiment_pipeline(text)[0]['label']
@@ -124,7 +98,7 @@ class ResponseGenerator:
             return 'empathique'
         else:
             return 'formel'
-    
+
     def generate_response(self, review_text: str, rating: float = None, tone: str = None) -> str:
         """
         Génère une réponse personnalisée pour un avis dans la langue de l'avis
@@ -133,7 +107,7 @@ class ResponseGenerator:
             review_text: Texte de l'avis
             rating: Note sur 5 (optionnel, pour auto-détecter le ton)
             tone: Ton souhaité ('formel', 'amical', 'empathique'). 
-                  Si None, sera détecté automatiquement.
+                Si None, sera détecté automatiquement.
         
         Returns:
             Réponse générée dans la langue de l'avis
@@ -149,9 +123,25 @@ class ResponseGenerator:
         if tone not in self.TONES:
             tone = 'formel'
         
+        # Header et footer adaptés à la langue
+        greetings = {
+            'fr': 'Cher client',
+            'en': 'Dear customer',
+            'es': 'Estimado cliente',
+        }
+        
+        closings = {
+            'fr': "Cordialement,\nL'équipe Service Client",
+            'en': "Best regards,\nThe Customer Service Team",
+            'es': "Atentamente,\nEl equipo de Atención al Cliente",
+        }
+        
+        greeting = greetings.get(language, greetings['en'])
+        closing = closings.get(language, closings['en'])
+        
         # Si AI activée, utiliser GPT4All
         if self.use_ai:
-            return self._generate_with_ai(review_text, tone, language)
+            return self._generate_with_ai(review_text, tone, language, greeting, closing)
         
         # Sinon utiliser les templates
         sentiment = self.detect_sentiment(review_text)
@@ -163,81 +153,254 @@ class ResponseGenerator:
             templates['closing']
         ]
         
-        return ' '.join(response_parts)
+        response_body = ' '.join(response_parts)
+        
+        # Formater avec header et footer dans la bonne langue
+        return f"{greeting},\n\n{response_body}\n\n{closing}"
+
+    def _clean_ai_response(self, response: str) -> str:
+        """Nettoie la réponse IA en supprimant les formules de politesse ajoutées automatiquement"""
+        
+        # Nettoyer le texte complet d'abord
+        cleaned = response.strip()
     
+        # Patterns à supprimer PARTOUT dans le texte
+        patterns_to_remove = [
+            r'Dear \[Client\],?\s*',
+            r'Dear clients?,?\s*',           # ← Couvre "Dear client" ET "Dear clients"
+            r'Dear valued customers?,?\s*',  # ← Couvre "customer" ET "customers"
+            r'Dear valued guests?,?\s*',     # ← Couvre "guest" ET "guests"
+            r'Dear customers?,?\s*',         # ← Couvre "customer" ET "customers"
+            r'Chers? clients?,?\s*',         # ← Couvre "Cher client", "Chers clients"
+            r'Chères? clientes?,?\s*',       # ← Couvre "Chère cliente", "Chères clientes"
+            r'Estimados? clientes?,?\s*',    # ← Espagnol : "Estimado cliente", "Estimados clientes"
+            r'\[Your name\]\s*',
+            r'\[Votre nom\]\s*',
+            r'\[Su nombre\]\s*',
+            r'Merci de votre compréhension\s*',
+            r'Sincerely,\s*Airbnb Customer Service\s*',
+            r'Cordialement,\s*Service Client Airbnb\s*',
+            r'Best regards,\s*Airbnb Customer Service\s*',
+            r'Best regards,\s*',
+            r'Cordialement,\s*', 
+            r'Sincerely,\s*',
+            r'Atentamente,\s*',
+            # Auto-références à supprimer
+            r'(?:^|\.\s+)As an?\s+[^.]+\.\s*',
+            r'(?:^|\.\s+)As your\s+[^.]+\.\s*',
+            r'(?:^|\.\s+)En tant qu[\'e]\s+[^.]+\.\s*',
+        ]
+        
+        # Supprimer tous les patterns
+        for pattern in patterns_to_remove:
+            cleaned = re.sub(pattern, '', cleaned, flags=re.IGNORECASE)
+        
+        # Nettoyer les espaces multiples et points en début
+        cleaned = re.sub(r'^\.\s*', '', cleaned)
+        cleaned = re.sub(r'\s+', ' ', cleaned)
+        
+        # Nettoyer ligne par ligne
+        lines = cleaned.split('\n')
+        final_lines = []
+        
+        for line in lines:
+            line_stripped = line.strip()
+            line_lower = line_stripped.lower()
+            
+            # Skip lignes vides
+            if not line_lower:
+                continue
+            
+            # Skip formules de politesse
+            skip_patterns = [
+                'dear customer',
+                'dear valued',
+                'cher client',
+                'chère client',
+                'estimado cliente',
+                'sincerely',
+                'best regards',
+                'cordialement',
+                'atentamente',
+                'as an',
+                'as a ',
+                'as your',
+                'en tant que',
+                "en tant qu'",
+            ]
+            
+            if any(line_lower.startswith(pattern) for pattern in skip_patterns):
+                continue
+            
+            # Skip signatures
+            if line_lower in ['the customer service team', "l'équipe service client", 'airbnb customer service', 'el equipo de atención al cliente']:
+                continue
+            
+            final_lines.append(line_stripped)
+        
+        result = '\n'.join(final_lines).strip()
 
+        # Failsafe
+        if not result or len(result) < 20:
+            print(f"⚠️ Nettoyage a tout supprimé, retour à l'original")
+            result = response.strip()
+            result = re.sub(r'^Dear \[Client\],?\s*', '', result, flags=re.IGNORECASE | re.MULTILINE)
+            result = re.sub(r'\[Your name\]\s*$', '', result, flags=re.IGNORECASE | re.MULTILINE)
+            result = re.sub(r'As an?\s+[^.]+\.\s*', '', result, flags=re.IGNORECASE)
+        
+        return result
 
-
-    def _generate_with_ai(self, review_text: str, tone: str, language: str = 'fr') -> str:
+    def _validate_response(self, response: str, original_review: str, expected_language: str) -> bool:
+        """Valide que la réponse générée est acceptable"""
+        
+        # Trop courte ou trop longue
+        if len(response) < 20 or len(response) > 800:  # ← Augmenté de 600 à 800
+            return False
+        
+        # Patterns suspects (modèle qui délire)
+        suspicious_patterns = [
+            'génère uniquement',
+            'formule de politesse',
+            'ne pas inclure',
+            'do not include',
+            'réponds en',
+            'respond in',
+            'écris une réponse',
+            'write a response',
+            '[inst]',  # ← Ajouté pour Mistral
+            '[/inst]',
+        ]
+        
+        response_lower = response.lower()
+        if any(pattern in response_lower for pattern in suspicious_patterns):
+            return False
+        
+        # Vérifier que la langue est correcte (plus tolérant)
+        try:
+            detected_lang = self.detect_language(response)
+            # Plus tolérant pour les langues proches
+            if detected_lang != expected_language:
+                similar_langs = {
+                    'en': ['es', 'nl', 'no'],
+                    'es': ['en', 'pt', 'ca'],
+                    'fr': ['es', 'it']
+                }
+                if detected_lang not in similar_langs.get(expected_language, []):
+                    print(f"⚠️ Langue détectée: {detected_lang}, attendue: {expected_language}")
+                    return False
+        except:
+            pass
+        
+        return True  # ← Retiré la vérification de répétition qui est trop stricte
+    
+    def _generate_with_ai(self, review_text: str, tone: str, language: str = 'fr', greeting: str = 'Dear customer', closing: str = 'Best regards,\nThe Customer Service Team') -> str:
         """Génère une réponse avec GPT4All (LLM local) dans la langue détectée"""
         
         if not self.model:
-            # Fallback sur templates si modèle non chargé
             sentiment = self.detect_sentiment(review_text)
             templates = self._get_templates(tone, sentiment, language)
-            return ' '.join([templates['greeting'], templates['acknowledgment'], templates['closing']])
+            response_body = ' '.join([templates['greeting'], templates['acknowledgment'], templates['closing']])
+            return f"{greeting},\n\n{response_body}\n\n{closing}"
         
         tone_descriptions = {
             'formel': {
-                'fr': 'professionnel et courtois',
-                'en': 'professional and courteous',
-                'es': 'profesional y cortés',
+                'fr': 'professionnel',
+                'en': 'professional',
+                'es': 'profesional',
             },
             'amical': {
-                'fr': 'chaleureux et amical',
-                'en': 'warm and friendly',
-                'es': 'cálido y amigable',
+                'fr': 'amical',
+                'en': 'friendly',
+                'es': 'amigable',
             },
             'empathique': {
-                'fr': 'empathique et compréhensif',
-                'en': 'empathetic and understanding',
-                'es': 'empático y comprensivo',
+                'fr': 'empathique',
+                'en': 'empathetic',
+                'es': 'empático',
             }
         }
         
-        language_names = {
-            'fr': 'français',
-            'en': 'English',
-            'es': 'español',
-        }
-        
-        lang_name = language_names.get(language, 'français')
         tone_desc = tone_descriptions.get(tone, tone_descriptions['formel']).get(language, 'professional')
         
-        closing_signatures = {
-            'fr': "Cordialement, L'équipe Service Client",
-            'en': "Best regards, The Customer Service Team",
-            'es': "Atentamente, El equipo de atención al cliente",
-        }
-        
-        signature = closing_signatures.get(language, closing_signatures['fr'])
-        
-        # Prompt pour GPT4All
-        prompt = f"""Tu es un service client {tone_desc}.
+        # PROMPTS SIMPLIFIÉS PAR LANGUE
+# PROMPTS ADAPTÉS POUR MISTRAL 7B
+        if language == 'fr':
+            prompt = f"""[INST] Tu es un assistant service client professionnel.
 
         Avis client : "{review_text}"
 
-        Réponds en {lang_name} (80-120 mots maximum).
-        Remercie le client. Si positif: reconnaissance. Si négatif: excuses et solution.
-        Signe: "{signature}".
+        Écris une réponse courte et professionnelle en français (maximum 80 mots).
+        - Si l'avis est positif : remercie chaleureusement
+        - Si l'avis est négatif : excuse-toi et propose une solution
+        - Ton : {tone_desc}
 
-        Réponse:"""
+        Réponds directement sans introduction ni signature. [/INST]
+
+        """
+
+        elif language == 'en':
+            prompt = f"""[INST] You are a professional customer service assistant.
+
+        Customer review: "{review_text}"
+
+        Write a short professional response in English (maximum 80 words).
+        - If positive review: thank warmly
+        - If negative review: apologize and offer solution
+        - Tone: {tone_desc}
+
+        Respond directly without introduction or signature. [/INST]
+
+        """
+
+        else:
+            prompt = f"""[INST] Eres un asistente profesional de servicio al cliente.
+
+        Reseña del cliente: "{review_text}"
+
+        Escribe una respuesta corta y profesional en español (máximo 80 palabras).
+        - Si es positiva: agradece calurosamente
+        - Si es negativa: discúlpate y ofrece solución
+        - Tono: {tone_desc}
+
+        Responde directamente sin introducción ni firma. [/INST]
+
+        """
+                
+        # RETRY JUSQU'À 3 FOIS
+        max_attempts = 3
         
-        try:
-            with self.model.chat_session():
-                response = self.model.generate(
+        for attempt in range(max_attempts):
+            try:
+                with self.model.chat_session():
+                    response = self.model.generate(
                     prompt,
-                    max_tokens=200,
-                    temp=0.7
+                    max_tokens=120,  # Augmenté légèrement
+                    temp=0.7,        # Mistral marche mieux à 0.7
+                    top_k=40,
+                    top_p=0.9
                 )
-                return response.strip()
+                    
+                    response_body = self._clean_ai_response(response)
+                    
+                    # VALIDATION STRICTE
+                    is_valid = self._validate_response(response_body, review_text, language)
+                    
+                    if is_valid:
+                        return f"{greeting},\n\n{response_body}\n\n{closing}"
+                    else:
+                        print(f"⚠️ Tentative {attempt + 1}/{max_attempts} : réponse invalide")
+                        continue
+            
+            except Exception as e:
+                print(f"Erreur génération (tentative {attempt + 1}): {e}")
+                continue
         
-        except Exception as e:
-            print(f"Erreur génération GPT4All: {e}")
-            # Fallback sur templates
-            sentiment = self.detect_sentiment(review_text)
-            templates = self._get_templates(tone, sentiment, language)
-            return ' '.join([templates['greeting'], templates['acknowledgment'], templates['closing']])
+        # Après 3 échecs → Fallback templates
+        print(f"⚠️ GPT4All a échoué après {max_attempts} tentatives, utilisation des templates")
+        sentiment = self.detect_sentiment(review_text)
+        templates = self._get_templates(tone, sentiment, language)
+        response_body = ' '.join([templates['greeting'], templates['acknowledgment'], templates['closing']])
+        return f"{greeting},\n\n{response_body}\n\n{closing}"
     
     def _get_templates(self, tone: str, sentiment: str, language: str = 'fr') -> dict:
         """Retourne les templates selon le ton, le sentiment et la langue"""

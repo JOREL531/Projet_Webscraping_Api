@@ -150,26 +150,28 @@ def generate_response(request: ReviewRequest):
 @app.get("/reviews-with-responses")
 def get_reviews_with_responses(
     source: ReviewSource,
-    url: str | None = None,
+    search: str | None = None,
     max_reviews: int = 50,
-    # tone: str | None = None
 ):
     """
     Récupère les avis ET génère automatiquement les réponses
     """
     # Récupérer les avis
     if source == ReviewSource.trustpilot:
-        reviews = extract_reviews_and_ratings_from_trustpilot(url, max_reviews)
+        reviews = extract_reviews_and_ratings_from_trustpilot(search, max_reviews)
     elif source == ReviewSource.yelp:
-        reviews = extract_reviews_and_ratings_from_yelp(url, max_reviews)
+        reviews = extract_reviews_and_ratings_from_yelp(search, max_reviews)
     elif source == ReviewSource.google:
-        reviews = extract_google_reviews_full_best_effort(url, max_reviews)
+        reviews = extract_google_reviews_full_best_effort(search, max_reviews)
     elif source == ReviewSource.playstore:
-        reviews = extract_reviews_and_ratings_from_google_play_store(url, max_reviews)
+        reviews = extract_reviews_and_ratings_from_google_play_store(search, max_reviews)
     elif source == ReviewSource.amazon:
-        reviews = extract_reviews_and_ratings_from_amazon(url, max_reviews)
+        reviews = extract_reviews_and_ratings_from_amazon(search, max_reviews)
     else:
         return {"error": "Source invalide"}
+    
+    # FILTRER les avis vides (seulement ceux avec du texte)
+    reviews = [r for r in reviews if r.get('review', '').strip()]
     
     # Générer les réponses pour chaque avis
     for review in reviews:
@@ -180,14 +182,13 @@ def get_reviews_with_responses(
             response = generator.generate_response(
                 review_text=review_text,
                 rating=rating,
-                # tone=tone
             )
             review['generated_response'] = response
             review['detected_language'] = generator.detect_language(review_text)
             review['detected_sentiment'] = generator.detect_sentiment(review_text)
     
     return {
-        "url": url,
+        "search": search,
         "requested_reviews": max_reviews,
         "returned_reviews": len(reviews),
         "data": reviews
