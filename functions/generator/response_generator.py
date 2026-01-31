@@ -182,7 +182,8 @@ class ResponseGenerator:
             r'Cordialement,\s*Service Client Airbnb\s*',
             r'Best regards,\s*Airbnb Customer Service\s*',
             r'Best regards,\s*',
-            r'Cordialement,\s*', 
+            r'Best regards!\s*',
+            r'Cordialement,\s*',
             r'Sincerely,\s*',
             r'Atentamente,\s*',
             # Auto-références à supprimer
