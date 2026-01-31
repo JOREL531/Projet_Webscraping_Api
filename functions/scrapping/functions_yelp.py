@@ -22,7 +22,8 @@ def search_company_from_yelp(company):
 
     # ---- Premier résultat ----
     first_card = wait.until(
-        EC.element_to_be_clickable((By.CSS_SELECTOR, "a[class='y-css-1887ssu']"))
+        # EC.element_to_be_clickable((By.CSS_SELECTOR, "a[class='y-css-9o0pq']")) #y-css-1887ssu
+        EC.element_to_be_clickable((By.XPATH, f"//a[contains(@name,'{company}')]"))
     )
 
     # Option 1 : cliquer directement
@@ -84,17 +85,17 @@ def extract_reviews_and_ratings_from_yelp(company, max_reviews):
             # Attendre les blocs d'avis
             wait.until(
                 EC.presence_of_all_elements_located(
-                    (By.XPATH, '//li[@class=" y-css-1sqelp2"]')
+                    (By.XPATH, '//li[@class=" y-css-19cyavo-styles"]') #y-css-1sqelp2
                 )
             )
 
-            reviews = driver.find_elements(By.XPATH, '//li[@class=" y-css-1sqelp2"]')
+            reviews = driver.find_elements(By.XPATH, '//li[@class=" y-css-19cyavo-styles"]')
 
             for review in reviews:
                 try:
                     # Texte de l'avis
                     text = review.find_element(
-                        By.CSS_SELECTOR, "span.raw__09f24__T4Ezm"
+                        By.CSS_SELECTOR, "span.raw__09f24__PkHSg" # raw__09f24__T4Ezm
                     ).text.strip()
 
                     # Rating
