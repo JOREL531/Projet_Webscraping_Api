@@ -53,6 +53,10 @@ poetry install
 ```bash
 uvicorn functions.API.main:app
 ```
+- Une fois le serveur lancé, ouvrez votre navigateur et allez sur :
+```bash
+http://127.0.0.1:8000/docs
+```
 
 6. **EXTRACTION DES REVIEWS : AMAZON**
 

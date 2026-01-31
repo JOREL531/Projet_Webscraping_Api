@@ -8,7 +8,28 @@ from functions.scrapping.functions_google_reviews import extract_google_reviews_
 from functions.generator.response_generator import ResponseGenerator
 from enum import Enum
 
-app = FastAPI(title="Reviews Scraper API")
+# app = FastAPI(title="Reviews Scraper API")
+app = FastAPI(
+    title="Bot de réponse automatique aux avis clients",
+    description=(
+        "### 🇫🇷 Répondez automatiquement aux avis clients, à grande échelle\n\n"
+        "Vous recevez trop d’avis pour répondre manuellement ? Cette API vous permet d’automatiser "
+        "la gestion des avis clients en collectant des avis publics provenant de plateformes telles que "
+        "Trustpilot, Yelp, Google, Play Store et Amazon.\n\n"
+        "Grâce à des modèles de traitement du langage naturel, elle génère en quelques secondes "
+        "des réponses pertinentes, cohérentes et adaptées au contexte de chaque avis, "
+        "tout en respectant un ton professionnel et homogène.\n\n"
+        "➡️ *Testez les endpoints directement via la documentation interactive (Swagger / OpenAPI).*\n\n"
+        "---\n\n"
+        "### 🇬🇧 Automatically respond to customer reviews, at scale\n\n"
+        "Receiving too many reviews to reply manually? This API helps you automate customer review "
+        "management by collecting public reviews from platforms such as Trustpilot, Yelp, Google, "
+        "Play Store and Amazon.\n\n"
+        "Using natural language processing models, it generates relevant and context-aware responses "
+        "within seconds, ensuring a consistent and professional tone across all customer interactions.\n\n"
+        "➡️ *Explore and test the endpoints via the interactive documentation (Swagger / OpenAPI).*"
+    ),
+)
 
 
 # Initialiser le générateur
